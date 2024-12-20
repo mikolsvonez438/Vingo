@@ -25,6 +25,69 @@ const bingoGrid = document.getElementById('bingoGrid');
 const lastDrawnDisplay = document.getElementById('lastDrawn');
 const callBingoBtn = document.getElementById('callBingo');
 const gameMessages = document.getElementById('gameMessages');
+
+// Add these variables at the top
+let currentRoom = '';
+const roomInput = document.getElementById('roomInput'); // Add this input to your HTML
+const createRoomBtn = document.getElementById('createRoom'); // Add this button to your HTML
+const joinRoomBtn = document.getElementById('joinRoom'); // Add this button to your HTML
+
+
+const chatSection = document.getElementById('chatSection');
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendMessage = document.getElementById('sendMessage');
+
+const chatToggle = document.getElementById('chatToggle');
+let isChatVisible = false;
+
+chatToggle.addEventListener('click', () => {
+    isChatVisible = !isChatVisible;
+    chatSection.style.display = isChatVisible ? 'block' : 'none';
+});
+
+function showChat() {
+    chatSection.style.display = 'block';
+}
+sendMessage.addEventListener('click', sendChatMessage);
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        console.log('zxc')
+        sendChatMessage();
+    }
+});
+socket.on('chat_message', (data) => {
+    console.log('zxc', data)
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${data.sender === playerName ? 'own' : 'other'}`;
+
+    const senderDiv = document.createElement('div');
+    senderDiv.className = 'message-sender';
+    senderDiv.textContent = data.sender;
+
+    const messageContent = document.createElement('div');
+    messageContent.textContent = data.message;
+
+    messageDiv.appendChild(senderDiv);
+    messageDiv.appendChild(messageContent);
+    chatMessages.appendChild(messageDiv);
+
+    // Auto-scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+});
+function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (message) {
+        // Emit message to server
+        socket.emit('chat_message', {
+            message: message,
+            sender: playerName,
+            room: currentRoom
+        });
+        chatInput.value = '';
+    }
+}
+
 // Generate BINGO card
 function generateBingoCard() {
     const card = [];
@@ -77,50 +140,97 @@ shuffleCardBtn.addEventListener('click', () => {
     }
 });
 // Join game handler
-joinGameBtn.addEventListener('click', () => {
+// joinGameBtn.addEventListener('click', () => {
+//     playerName = playerNameInput.value.trim();
+//     currentRoom = roomInput.value.trim();
+
+//     if (playerName && currentRoom) {
+//         socket.emit('joinGame', { playerName, room: currentRoom });
+//         welcomeScreen.style.display = 'none';
+//     } else {
+//         showMessage('Please enter your name and room code!', 'red');
+//     }
+// });
+
+// Add these new event listeners
+createRoomBtn.addEventListener('click', () => {
     playerName = playerNameInput.value.trim();
     if (playerName) {
-        socket.emit('joinGame', playerName);
-        welcomeScreen.style.display = 'none';
-
+        socket.emit('createRoom', playerName);
     } else {
         showMessage('Please enter your name!', 'red');
-
     }
 });
+
+joinRoomBtn.addEventListener('click', () => {
+    playerName = playerNameInput.value.trim();
+    currentRoom = roomInput.value.trim();
+    console.log("playerName", playerName, "currentRoom", currentRoom)
+    if (playerName && currentRoom) {
+        socket.emit('joinRoom', { playerName, roomCode: currentRoom });
+    } else {
+        showMessage('Please enter your name and room code!', 'red');
+    }
+});
+
+
 // Host controls
 drawNumberBtn.addEventListener('click', () => {
     if (isHost && gameActive) {
-        socket.emit('drawNumber');
-
+        socket.emit('drawNumber', currentRoom);
     }
 });
 startGameBtn.addEventListener('click', () => {
     if (isHost) {
-        socket.emit('startGame');
+        socket.emit('startGame', currentRoom);
 
     }
 });
 resetGameBtn.addEventListener('click', () => {
     if (isHost) {
-        socket.emit('resetGame');
+        socket.emit('resetGame', currentRoom);
 
     }
 });
 callBingoBtn.addEventListener('click', () => {
     if (checkForWin()) {
-        socket.emit('bingoCalled', { playerName, card: myBingoCard });
+        socket.emit('bingoCalled', {
+            playerName,
+            card: myBingoCard,
+            room: currentRoom
+        });
     } else {
         showMessage('Invalid BINGO call - please check your card!', 'red');
-
     }
 });
+
+// Add these new socket event listeners
+socket.on('roomCreated', (roomCode) => {
+    currentRoom = roomCode;
+    showMessage(`Room created! Room code: ${roomCode}`, 'green');
+    welcomeScreen.style.display = 'none';
+    chatToggle.style.display = 'block';
+});
+
+socket.on('roomJoined', (roomCode) => {
+    currentRoom = roomCode;
+    showMessage(`Joined room: ${roomCode}`, 'green');
+    welcomeScreen.style.display = 'none';
+    chatToggle.style.display = 'block';
+});
+
+socket.on('roomError', (message) => {
+    showMessage(message, 'red');
+});
+
+
 // Socket event handlers
 socket.on('hostAssigned', () => {
     isHost = true;
     hostControls.style.display = 'block';
     playerView.style.display = 'none';
     showMessage('You are the host!', 'green');
+    showChat();
 
 });
 socket.on('playerAssigned', (card) => {
@@ -129,9 +239,11 @@ socket.on('playerAssigned', (card) => {
     playerView.style.display = 'block';
     myBingoCard = card;
     renderBingoCard(card);
+    showChat();
     showMessage('Welcome to the game! You can shuffle your card before the game starts.', 'green');
 
 });
+let numberHistory = [];
 socket.on('numberDrawn', (number) => {
     drawnNumbers.add(number);
 
@@ -147,7 +259,9 @@ socket.on('numberDrawn', (number) => {
     const formattedNumber = `${getLetterPrefix(number)} ${number}`;
 
     currentNumberDisplay.textContent = formattedNumber;
-    lastDrawnDisplay.textContent = formattedNumber;
+    numberHistory.unshift(formattedNumber);
+    numberHistory = numberHistory.slice(0, 3);
+    lastDrawnDisplay.textContent = numberHistory.join(' ');
     updateDrawnNumbersList();
     showMessage(`Number drawn: ${getLetterPrefix(number)} ${number}`, 'default');
 });
@@ -187,6 +301,24 @@ socket.on('updatePlayers', (players) => {
 });
 socket.on('bingoWinner', (winner) => {
     gameActive = false;
+    const winnerOverlay = document.createElement('div');
+    winnerOverlay.className = 'winner-overlay';
+    winnerOverlay.innerHTML = `
+        <div class="winner-content">
+            <h1>🎉 BINGO! 🎉</h1>
+            <h2>${winner} has won the game!</h2>
+            <button class="close-overlay-btn">Close</button>
+        </div>
+    `;
+    document.body.appendChild(winnerOverlay);
+
+    // Add event listener to close button
+    const closeBtn = winnerOverlay.querySelector('.close-overlay-btn');
+    closeBtn.addEventListener('click', () => {
+        winnerOverlay.remove();
+    });
+
+
     showMessage(`${winner} has won the game!`, 'winner');
     callBingoBtn.disabled = true;
     shuffleCardBtn.disabled = false;
@@ -344,5 +476,97 @@ function getIconForMessage(color) {
             return '🏆';
         default:
             return '📢';
+    }
+}
+
+
+// Add this to your existing JavaScript
+const patterns = [
+    // Row patterns
+    "11111|00000|00000|00000|00000",
+    "00000|11111|00000|00000|00000",
+    "00000|00000|11011|00000|00000",
+    "00000|00000|00000|11111|00000",
+    "00000|00000|00000|00000|11111",
+
+    // Column patterns
+    "10000|10000|10000|10000|10000",
+    "01000|01000|01000|01000|01000",
+    "00100|00100|00000|00100|00100",
+    "00010|00010|00010|00010|00010",
+    "00001|00001|00001|00001|00001",
+
+    // Diagonal patterns
+    "00001|00010|00000|01000|10000",
+    "10000|01000|00000|00010|00001",
+    "00010|00100|01000|10000|00000",
+    "00000|00001|00010|00100|01000",
+    "01000|00100|00010|00001|00000",
+    "00000|10000|01000|00100|00010",
+
+    // Box patterns
+    "11000|11000|00000|00000|00000",
+    "01100|01100|00000|00000|00000",
+    "00110|00110|00000|00000|00000",
+    "00011|00011|00000|00000|00000",
+    "00000|11000|11000|00000|00000",
+    "00000|00011|00011|00000|00000",
+    "00000|00000|00011|00011|00000",
+    "00000|00000|11000|11000|00000",
+    "00000|00000|00000|11000|11000",
+    "00000|00000|00000|01100|01100",
+    "00000|00000|00000|00110|00110",
+    "00000|00000|00000|00011|00011",
+
+    // Corner patterns
+    "10001|00000|00000|00000|10001",
+    "00000|01010|00000|01010|00000",
+
+    // Flower patterns
+    "00100|00000|10001|00000|00100",
+    "00000|00100|01010|00100|00000",
+    "01000|10100|01000|00000|00000",
+    "00010|00101|00010|00000|00000",
+    "00000|00000|01000|10100|01000",
+    "00000|00000|00010|00101|00010"
+];
+
+document.getElementById('showPatterns').addEventListener('click', showPatterns);
+const modal = document.getElementById('patternsModal');
+const span = document.getElementsByClassName('close')[0];
+
+function showPatterns() {
+    const container = document.querySelector('.patterns-container');
+    container.innerHTML = '';
+
+    patterns.forEach(pattern => {
+        const gridDiv = document.createElement('div');
+        gridDiv.className = 'pattern-grid';
+
+        const rows = pattern.split('|');
+        rows.forEach(row => {
+            for (let i = 0; i < row.length; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'pattern-cell';
+                if (row[i] === '1') {
+                    cell.classList.add('marked');
+                }
+                gridDiv.appendChild(cell);
+            }
+        });
+
+        container.appendChild(gridDiv);
+    });
+
+    modal.style.display = "block";
+}
+
+span.onclick = function () {
+    modal.style.display = "none";
+}
+
+window.onclick = function (event) {
+    if (event.target == modal) {
+        modal.style.display = "none";
     }
 }
