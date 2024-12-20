@@ -43,7 +43,7 @@ let isChatVisible = false;
 
 chatToggle.addEventListener('click', () => {
     isChatVisible = !isChatVisible;
-    chatSection.style.display = isChatVisible ? 'block' : 'none';
+    //chatSection.style.display = isChatVisible ? 'block' : 'none';
 });
 
 function showChat() {
