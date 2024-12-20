@@ -9,6 +9,22 @@ const io = require('socket.io')(http, {
 });
 // Serve static files from public directory
 app.use(express.static('public'));
+const gameRooms = new Map(); // Room Code -> Room State
+
+function generateRoomCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+function createNewRoom() {
+    return {
+        host: null,
+        players: new Map(), // Socket ID -> Player Name
+        drawnNumbers: new Set(),
+        availableNumbers: new Set(),
+        gameActive: false,
+        playerCards: new Map() // Socket ID -> Bingo Card
+    };
+}
+
 // Game state
 let gameState = {
     host: null,
@@ -20,131 +36,172 @@ let gameState = {
 
 };
 // Initialize available numbers (1-75)
-function initializeAvailableNumbers() {
-    gameState.availableNumbers.clear();
+function initializeAvailableNumbers(roomCode) {
+    const room = gameRooms.get(roomCode);
+    room.availableNumbers.clear();
     for (let i = 1; i <= 75; i++) {
-        gameState.availableNumbers.add(i);
-
+        room.availableNumbers.add(i);
     }
 }
 // Get random number that hasn't been drawn yet
-function getRandomNumber() {
-    const availableNums = Array.from(gameState.availableNumbers);
+function getRandomNumber(roomCode) {
+    const room = gameRooms.get(roomCode);
+    const availableNums = Array.from(room.availableNumbers);
     if (availableNums.length === 0) return null;
 
     const randomIndex = Math.floor(Math.random() * availableNums.length);
     const number = availableNums[randomIndex];
 
-    // Remove the number from available numbers and add to drawn numbers
-    gameState.availableNumbers.delete(number);
-    gameState.drawnNumbers.add(number);
+    room.availableNumbers.delete(number);
+    room.drawnNumbers.add(number);
 
     return number;
 
 }
+
+// In your server code
+
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
-    // Handle player joining
-    socket.on('joinGame', (playerName) => {
-        // Assign first player as host
-        if (!gameState.host) {
-            gameState.host = socket.id;
-            gameState.players.set(socket.id, playerName);
-            socket.emit('hostAssigned');
-            console.log('Host assigned:', playerName);
-
-        } else {
-            // Add other players
-            gameState.players.set(socket.id, playerName);
-            const card = generateBingoCard();
-            gameState.playerCards.set(socket.id, card);
-            socket.emit('playerAssigned', card);
-            console.log('Player joined:', playerName);
-
-        }
-        // Update all clients with new player list
-        io.emit('updatePlayers', Array.from(gameState.players.values()));
+    socket.on('chat_message', (data) => {
+        io.to(data.room).emit('chat_message', {
+            message: data.message,
+            sender: data.sender
+        });
     });
+    
+    // Handle create room request
+    socket.on('createRoom', (playerName) => {
+        const roomCode = generateRoomCode();
+        gameRooms.set(roomCode, createNewRoom());
+
+        const room = gameRooms.get(roomCode);
+        room.host = socket.id;
+        room.players.set(socket.id, playerName);
+
+        socket.join(roomCode);
+        socket.emit('roomCreated', roomCode);
+        socket.emit('hostAssigned');
+        
+        io.to(roomCode).emit('updatePlayers', Array.from(room.players.values()));
+
+        console.log(`Room ${roomCode} created by ${playerName}`);
+    });
+
+    // Handle join room request
+    socket.on('joinRoom', ({ roomCode, playerName }) => {
+        const room = gameRooms.get(roomCode);
+
+        if (!room) {
+            socket.emit('errorMessage', 'Room does not exist');
+            return;
+        }
+
+        socket.join(roomCode);
+        room.players.set(socket.id, playerName);
+        socket.emit('roomJoined', roomCode);
+        
+        const card = generateBingoCard();
+        room.playerCards.set(socket.id, card);
+
+        socket.emit('playerAssigned', card);
+        io.to(roomCode).emit('updatePlayers', Array.from(room.players.values()));
+
+        console.log(`${playerName} joined room ${roomCode}`);
+    });
+
     // Handle number drawing (host only)
-    socket.on('drawNumber', () => {
-        console.log('Draw number requested by:', socket.id);
-        console.log('Current host:', gameState.host);
-        console.log('Game active:', gameState.gameActive);
-        if (socket.id === gameState.host && gameState.gameActive) {
-            const number = getRandomNumber();
-            console.log('Number drawn:', number);
+    socket.on('drawNumber', (roomCode) => {
+        const room = gameRooms.get(roomCode);
+
+        if (socket.id === room.host && room.gameActive) {
+            const number = getRandomNumber(roomCode);
 
             if (number !== null) {
-                io.emit('numberDrawn', number);
-                console.log('Number drawn and emitted:', number);
-
+                io.to(roomCode).emit('numberDrawn', number);
             } else {
-                io.emit('gameMessage', 'All numbers have been drawn!');
-
+                io.to(roomCode).emit('gameMessage', 'All numbers have been drawn!');
             }
-        } else {
-            console.log('Draw number rejected - not host or game not active');
-
         }
     });
+
     // Handle game start (host only)
-    socket.on('startGame', () => {
-        if (socket.id === gameState.host) {
-            gameState.gameActive = true;
-            gameState.drawnNumbers.clear();
-            initializeAvailableNumbers();  // Initialize available numbers
-            io.emit('gameStarted');
-            console.log('Game started');
+    socket.on('startGame', (roomCode) => {
+        const room = gameRooms.get(roomCode);
 
+        if (socket.id === room.host) {
+            room.gameActive = true;
+            room.drawnNumbers.clear();
+            initializeAvailableNumbers(roomCode);
+            io.to(roomCode).emit('gameStarted');
         }
     });
+
     // Handle game reset (host only)
-    socket.on('resetGame', () => {
-        if (socket.id === gameState.host) {
-            gameState.gameActive = false;
-            gameState.drawnNumbers.clear();
-            initializeAvailableNumbers();  // Reset available numbers
-            io.emit('gameReset');
-            console.log('Game reset');
+    socket.on('resetGame', (roomCode) => {
+        const room = gameRooms.get(roomCode);
 
+        if (socket.id === room.host) {
+            room.gameActive = false;
+            room.drawnNumbers.clear();
+            initializeAvailableNumbers(roomCode);
+            io.to(roomCode).emit('gameReset');
         }
     });
-    // Handle BINGO calls
-    socket.on('bingoCalled', ({ playerName, card }) => {
-        if (gameState.gameActive) {
-            if (verifyWin(card, gameState.drawnNumbers)) {
-                gameState.gameActive = false;
-                io.emit('bingoWinner', playerName);
-                console.log('BINGO winner:', playerName);
 
+    // Handle BINGO calls
+    socket.on('bingoCalled', ({ room, playerName, card }) => {
+        const gameRoom  = gameRooms.get(room);
+        console.log(room)
+
+        if (gameRoom .gameActive) {
+            if (verifyWin(card, gameRoom .drawnNumbers)) {
+                gameRoom .gameActive = false;
+                io.to(room).emit('bingoWinner', playerName);
             }
         }
     });
+
     // Handle disconnection
     socket.on('disconnect', () => {
-        const playerName = gameState.players.get(socket.id);
+        // Find which room the disconnected socket was in
+        for (const [roomCode, room] of gameRooms.entries()) {
+            if (room.players.has(socket.id)) {
+                const playerName = room.players.get(socket.id);
 
-        // If host disconnects, assign new host
-        if (socket.id === gameState.host) {
-            const players = Array.from(gameState.players.keys());
-            const remainingPlayers = players.filter(id => id !== socket.id);
+                // If host disconnects, assign new host or delete room
+                if (socket.id === room.host) {
+                    const players = Array.from(room.players.keys());
+                    const remainingPlayers = players.filter(id => id !== socket.id);
 
-            if (remainingPlayers.length > 0) {
-                gameState.host = remainingPlayers[0];
-                io.to(gameState.host).emit('hostAssigned');
+                    if (remainingPlayers.length > 0) {
+                        room.host = remainingPlayers[0];
+                        io.to(remainingPlayers[0]).emit('hostAssigned');
+                    } else {
+                        gameRooms.delete(roomCode);
+                        return;
+                    }
+                }
 
-            } else {
-                gameState.host = null;
+                // Remove player from room
+                room.players.delete(socket.id);
+                room.playerCards.delete(socket.id);
 
+                // Update remaining players
+                io.to(roomCode).emit('updatePlayers', Array.from(room.players.values()));
+                console.log(`${playerName} disconnected from room ${roomCode}`);
+
+                // If room is empty, delete it
+                if (room.players.size === 0) {
+                    gameRooms.delete(roomCode);
+                    console.log(`Room ${roomCode} deleted`);
+                }
+
+                break;
             }
         }
-        // Remove player from game state
-        gameState.players.delete(socket.id);
-        gameState.playerCards.delete(socket.id);
-        // Update all clients
-        io.emit('updatePlayers', Array.from(gameState.players.values()));
-        console.log('User disconnected:', playerName);
     });
 });
 function generateRandomNumbers(min, max, count) {
@@ -206,12 +263,12 @@ function verifyWin(card, drawnNumbers) {
 
     // Diagonal patterns
     const diagonalPatterns = [
-        [[0,4], [1,3], [3,1], [4,0]], // Top-right to bottom-left
-        [[0,0], [1,1], [3,3], [4,4]], // Top-left to bottom-right
-        [[0,3], [1,2], [2,1], [3,0]], // Partial diagonal
-        [[1,4], [2,3], [3,2], [4,1]], // Partial diagonal
-        [[0,1], [1,2], [2,3], [3,4]], // Partial diagonal
-        [[0,0], [1,1], [2,2], [3,3]], // Partial diagonal
+        [[0, 4], [1, 3], [3, 1], [4, 0]], // Top-right to bottom-left
+        [[0, 0], [1, 1], [3, 3], [4, 4]], // Top-left to bottom-right
+        [[0, 3], [1, 2], [2, 1], [3, 0]], // Partial diagonal
+        [[1, 4], [2, 3], [3, 2], [4, 1]], // Partial diagonal
+        [[0, 1], [1, 2], [2, 3], [3, 4]], // Partial diagonal
+        [[0, 0], [1, 1], [2, 2], [3, 3]], // Partial diagonal
     ];
 
     for (let pattern of diagonalPatterns) {
@@ -220,18 +277,18 @@ function verifyWin(card, drawnNumbers) {
 
     // Box patterns (2x2)
     const boxPatterns = [
-        [[0,0], [0,1], [1,0], [1,1]], // Top-left
-        [[0,1], [0,2], [1,1], [1,2]], // Top-middle
-        [[0,2], [0,3], [1,2], [1,3]], // Top-middle-right
-        [[0,3], [0,4], [1,3], [1,4]], // Top-right
-        [[1,0], [1,1], [2,0], [2,1]], // Middle-left
-        [[1,3], [1,4], [2,3], [2,4]], // Middle-right
-        [[2,3], [2,4], [3,3], [3,4]], // Bottom-middle-right
-        [[2,0], [2,1], [3,0], [3,1]], // Bottom-middle-left
-        [[3,0], [3,1], [4,0], [4,1]], // Bottom-left
-        [[3,1], [3,2], [4,1], [4,2]], // Bottom-middle
-        [[3,2], [3,3], [4,2], [4,3]], // Bottom-middle-right
-        [[3,3], [3,4], [4,3], [4,4]]  // Bottom-right
+        [[0, 0], [0, 1], [1, 0], [1, 1]], // Top-left
+        [[0, 1], [0, 2], [1, 1], [1, 2]], // Top-middle
+        [[0, 2], [0, 3], [1, 2], [1, 3]], // Top-middle-right
+        [[0, 3], [0, 4], [1, 3], [1, 4]], // Top-right
+        [[1, 0], [1, 1], [2, 0], [2, 1]], // Middle-left
+        [[1, 3], [1, 4], [2, 3], [2, 4]], // Middle-right
+        [[2, 3], [2, 4], [3, 3], [3, 4]], // Bottom-middle-right
+        [[2, 0], [2, 1], [3, 0], [3, 1]], // Bottom-middle-left
+        [[3, 0], [3, 1], [4, 0], [4, 1]], // Bottom-left
+        [[3, 1], [3, 2], [4, 1], [4, 2]], // Bottom-middle
+        [[3, 2], [3, 3], [4, 2], [4, 3]], // Bottom-middle-right
+        [[3, 3], [3, 4], [4, 3], [4, 4]]  // Bottom-right
     ];
 
     for (let pattern of boxPatterns) {
@@ -239,16 +296,16 @@ function verifyWin(card, drawnNumbers) {
     }
 
     // Corner patterns
-    if (checkPattern([[0,0], [0,4], [4,0], [4,4]])) return true;
+    if (checkPattern([[0, 0], [0, 4], [4, 0], [4, 4]])) return true;
 
     // Flower patterns
     const flowerPatterns = [
-        [[0,2], [2,0], [2,4], [4,2]], // Cross pattern
-        [[1,2], [2,1], [2,3], [3,2]], // Center flower
-        [[0,1], [1,0], [1,2], [2,1]], // Top flower
-        [[0,3], [1,2], [1,4], [2,3]], // Top-right flower
-        [[2,1], [3,0], [3,2], [4,1]], // Bottom-left flower
-        [[2,3], [3,2], [3,4], [4,3]]  // Bottom-right flower
+        [[0, 2], [2, 0], [2, 4], [4, 2]], // Cross pattern
+        [[1, 2], [2, 1], [2, 3], [3, 2]], // Center flower
+        [[0, 1], [1, 0], [1, 2], [2, 1]], // Top flower
+        [[0, 3], [1, 2], [1, 4], [2, 3]], // Top-right flower
+        [[2, 1], [3, 0], [3, 2], [4, 1]], // Bottom-left flower
+        [[2, 3], [3, 2], [3, 4], [4, 3]]  // Bottom-right flower
     ];
 
     for (let pattern of flowerPatterns) {
@@ -262,256 +319,3 @@ const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
-
-
-// // row and column pattern
-// X X X X X
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// · · · · ·
-
-// · · · · ·
-// X X X X X
-// · · · · ·
-// · · · · ·
-// · · · · ·
-
-// · · · · ·
-// · · · · ·
-// X X · X X
-// · · · · ·
-// · · · · ·
-
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// X X X X X
-// · · · · ·
-
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// X X X X X
-
-// X · · · ·
-// X · · · ·
-// X · · · ·
-// X · · · ·
-// X · · · ·
-
-// · X · · ·
-// · X · · ·
-// · X · · ·
-// · X · · ·
-// · X · · ·
-
-// · · X · ·
-// · · X · ·
-// · · · · ·
-// · · X · ·
-// · · X · ·
-
-// · · · X ·
-// · · · X ·
-// · · · X ·
-// · · · X ·
-// · · · X ·
-
-// · · · · X
-// · · · · X
-// · · · · X
-// · · · · X
-// · · · · X
-
-
-// // diagonal pattern
-
-
-
-// · · · · X
-// · · · X ·
-// · · · · ·
-// · X · · ·
-// X · · · ·
-
-// X · · · ·
-// · X · · ·
-// · · · · ·
-// · · · X ·
-// · · · · X
-
-// · · · X ·
-// · · X · ·
-// · X · · ·
-// X · · · ·
-// · · · · ·
-
-// · · · · ·
-// · · · · X
-// · · · X ·
-// · · X · ·
-// · X · · ·
-
-// · X · · ·
-// · · X · ·
-// · · · X ·
-// · · · · X
-// · · · · ·
-
-// · · · · ·
-// X · · · ·
-// · X · · ·
-// · · X · ·
-// · · · X ·
-
-// // box pattern
-
-// X X · · ·
-// X X · · ·
-// · · · · ·
-// · · · · ·
-// · · · · ·
-
-
-// · X X · ·
-// · X X · ·
-// · · · · ·
-// · · · · ·
-// · · · · ·
-
-
-// · · X X ·
-// · · X X ·
-// · · · · ·
-// · · · · ·
-// · · · · ·
-
-
-// · · · X X
-// · · · X X
-// · · · · ·
-// · · · · ·
-// · · · · ·
-
-// · · · · ·
-// X X · · ·
-// X X · · ·
-// · · · · ·
-// · · · · ·
-
-// · · · · ·
-// · · · X X
-// · · · X X
-// · · · · ·
-// · · · · ·
-
-// · · · · ·
-// · · · · ·
-// · · · X X
-// · · · X X
-// · · · · ·
-
-// · · · · ·
-// · · · · ·
-// X X · · ·
-// X X · · ·
-// · · · · ·
-
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// X X · · ·
-// X X · · ·
-
-
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// · X X · ·
-// · X X · ·
-
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// · · X X ·
-// · · X X ·
-
-
-
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// · · · X X
-// · · · X X
-
-// X · · · X
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// X · · · X
-
-// · · · · ·
-// · X · X ·
-// · · · · ·
-// · X · X ·
-// · · · · ·
-
-// // flower pattern
-
-// · · X · ·
-// · · · · ·
-// X · · · X
-// · · · · ·
-// · · X · ·
-
-// · · · · ·
-// · · X · ·
-// · X · X ·
-// · · X · ·
-// · · · · ·
-
-// · X · · ·
-// X · X · ·
-// · X · · ·
-// · · · · ·
-// · · · · ·
-
-// · · · X ·
-// · · X · X
-// · · · X ·
-// · · · · ·
-// · · · · ·
-
-// · · · · ·
-// · · · · ·
-// · X · · ·
-// X · X · ·
-// · X · · ·
-
-
-// · · · · ·
-// · · · · ·
-// · · · X ·
-// · · X · X
-// · · · X ·
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// · · · · ·
-// · · · · ·
