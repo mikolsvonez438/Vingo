@@ -1,5 +1,7 @@
 // Connect to Socket.IO server
-const socket = io();
+const socket = io({
+    transports: ['polling']
+});
 // Game state variables
 let isHost = false;
 let playerName = '';
