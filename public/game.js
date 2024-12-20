@@ -209,14 +209,14 @@ socket.on('roomCreated', (roomCode) => {
     currentRoom = roomCode;
     showMessage(`Room created! Room code: ${roomCode}`, 'green');
     welcomeScreen.style.display = 'none';
-    chatToggle.style.display = 'block';
+    //chatToggle.style.display = 'block';
 });
 
 socket.on('roomJoined', (roomCode) => {
     currentRoom = roomCode;
     showMessage(`Joined room: ${roomCode}`, 'green');
     welcomeScreen.style.display = 'none';
-    chatToggle.style.display = 'block';
+    //chatToggle.style.display = 'block';
 });
 
 socket.on('roomError', (message) => {
