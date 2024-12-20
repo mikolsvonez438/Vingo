@@ -457,7 +457,7 @@ function showMessage(message, color) {
         <span class="message-text">${message}</span>
     `;
 
-    gameMessages.appendChild(messageDiv);
+    //gameMessages.appendChild(messageDiv);
 
     // Remove the message after animation completes
     setTimeout(() => {
