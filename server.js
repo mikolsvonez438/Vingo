@@ -1,15 +1,10 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-    transports: ['polling'],
-    cors: {
-        origin: '*'
-    }
-});
+const io = require('socket.io')(http);
 // Serve static files from public directory
-//
 app.use(express.static('public'));
+
 const gameRooms = new Map(); // Room Code -> Room State
 
 function generateRoomCode() {
@@ -66,12 +61,13 @@ function getRandomNumber(roomCode) {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
-    socket.on('chat_message', (data) => {
-        io.to(data.room).emit('chat_message', {
-            message: data.message,
-            sender: data.sender
-        });
-    });
+    // MESSAGE
+    // socket.on('chat_message', (data) => {
+    //     io.to(data.room).emit('chat_message', {
+    //         message: data.message,
+    //         sender: data.sender
+    //     });
+    // });
     
     // Handle create room request
     socket.on('createRoom', (playerName) => {
@@ -320,3 +316,256 @@ const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
+
+// // row and column pattern
+// X X X X X
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// · · · · ·
+
+// · · · · ·
+// X X X X X
+// · · · · ·
+// · · · · ·
+// · · · · ·
+
+// · · · · ·
+// · · · · ·
+// X X · X X
+// · · · · ·
+// · · · · ·
+
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// X X X X X
+// · · · · ·
+
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// X X X X X
+
+// X · · · ·
+// X · · · ·
+// X · · · ·
+// X · · · ·
+// X · · · ·
+
+// · X · · ·
+// · X · · ·
+// · X · · ·
+// · X · · ·
+// · X · · ·
+
+// · · X · ·
+// · · X · ·
+// · · · · ·
+// · · X · ·
+// · · X · ·
+
+// · · · X ·
+// · · · X ·
+// · · · X ·
+// · · · X ·
+// · · · X ·
+
+// · · · · X
+// · · · · X
+// · · · · X
+// · · · · X
+// · · · · X
+
+
+// // diagonal pattern
+
+
+
+// · · · · X
+// · · · X ·
+// · · · · ·
+// · X · · ·
+// X · · · ·
+
+// X · · · ·
+// · X · · ·
+// · · · · ·
+// · · · X ·
+// · · · · X
+
+// · · · X ·
+// · · X · ·
+// · X · · ·
+// X · · · ·
+// · · · · ·
+
+// · · · · ·
+// · · · · X
+// · · · X ·
+// · · X · ·
+// · X · · ·
+
+// · X · · ·
+// · · X · ·
+// · · · X ·
+// · · · · X
+// · · · · ·
+
+// · · · · ·
+// X · · · ·
+// · X · · ·
+// · · X · ·
+// · · · X ·
+
+// // box pattern
+
+// X X · · ·
+// X X · · ·
+// · · · · ·
+// · · · · ·
+// · · · · ·
+
+
+// · X X · ·
+// · X X · ·
+// · · · · ·
+// · · · · ·
+// · · · · ·
+
+
+// · · X X ·
+// · · X X ·
+// · · · · ·
+// · · · · ·
+// · · · · ·
+
+
+// · · · X X
+// · · · X X
+// · · · · ·
+// · · · · ·
+// · · · · ·
+
+// · · · · ·
+// X X · · ·
+// X X · · ·
+// · · · · ·
+// · · · · ·
+
+// · · · · ·
+// · · · X X
+// · · · X X
+// · · · · ·
+// · · · · ·
+
+// · · · · ·
+// · · · · ·
+// · · · X X
+// · · · X X
+// · · · · ·
+
+// · · · · ·
+// · · · · ·
+// X X · · ·
+// X X · · ·
+// · · · · ·
+
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// X X · · ·
+// X X · · ·
+
+
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// · X X · ·
+// · X X · ·
+
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// · · X X ·
+// · · X X ·
+
+
+
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// · · · X X
+// · · · X X
+
+// X · · · X
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// X · · · X
+
+// · · · · ·
+// · X · X ·
+// · · · · ·
+// · X · X ·
+// · · · · ·
+
+// // flower pattern
+
+// · · X · ·
+// · · · · ·
+// X · · · X
+// · · · · ·
+// · · X · ·
+
+// · · · · ·
+// · · X · ·
+// · X · X ·
+// · · X · ·
+// · · · · ·
+
+// · X · · ·
+// X · X · ·
+// · X · · ·
+// · · · · ·
+// · · · · ·
+
+// · · · X ·
+// · · X · X
+// · · · X ·
+// · · · · ·
+// · · · · ·
+
+// · · · · ·
+// · · · · ·
+// · X · · ·
+// X · X · ·
+// · X · · ·
+
+
+// · · · · ·
+// · · · · ·
+// · · · X ·
+// · · X · X
+// · · · X ·
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// · · · · ·
+// · · · · ·
