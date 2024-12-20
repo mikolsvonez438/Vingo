@@ -1,7 +1,5 @@
 // Connect to Socket.IO server
-const socket = io({
-    transports: ['polling']
-});
+const socket = io();
 // Game state variables
 let isHost = false;
 let playerName = '';
@@ -32,61 +30,62 @@ const roomInput = document.getElementById('roomInput'); // Add this input to you
 const createRoomBtn = document.getElementById('createRoom'); // Add this button to your HTML
 const joinRoomBtn = document.getElementById('joinRoom'); // Add this button to your HTML
 
+// SEND MESSAGE
 
-const chatSection = document.getElementById('chatSection');
-const chatMessages = document.getElementById('chatMessages');
-const chatInput = document.getElementById('chatInput');
-const sendMessage = document.getElementById('sendMessage');
+// const chatSection = document.getElementById('chatSection');
+// const chatMessages = document.getElementById('chatMessages');
+// const chatInput = document.getElementById('chatInput');
+// const sendMessage = document.getElementById('sendMessage');
 
-const chatToggle = document.getElementById('chatToggle');
-let isChatVisible = false;
+// const chatToggle = document.getElementById('chatToggle');
+// let isChatVisible = false;
 
-chatToggle.addEventListener('click', () => {
-    isChatVisible = !isChatVisible;
-    //chatSection.style.display = isChatVisible ? 'block' : 'none';
-});
+// chatToggle.addEventListener('click', () => {
+//     isChatVisible = !isChatVisible;
+//     chatSection.style.display = isChatVisible ? 'block' : 'none';
+// });
 
-function showChat() {
-    //chatSection.style.display = 'block';
-}
-sendMessage.addEventListener('click', sendChatMessage);
-chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        console.log('zxc')
-        sendChatMessage();
-    }
-});
-socket.on('chat_message', (data) => {
-    console.log('zxc', data)
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${data.sender === playerName ? 'own' : 'other'}`;
+// function showChat() {
+//     chatSection.style.display = 'block';
+// }
+// sendMessage.addEventListener('click', sendChatMessage);
+// chatInput.addEventListener('keypress', (e) => {
+//     if (e.key === 'Enter') {
+//         console.log('zxc')
+//         sendChatMessage();
+//     }
+// });
+// socket.on('chat_message', (data) => {
+//     console.log('zxc', data)
+//     const messageDiv = document.createElement('div');
+//     messageDiv.className = `chat-message ${data.sender === playerName ? 'own' : 'other'}`;
 
-    const senderDiv = document.createElement('div');
-    senderDiv.className = 'message-sender';
-    senderDiv.textContent = data.sender;
+//     const senderDiv = document.createElement('div');
+//     senderDiv.className = 'message-sender';
+//     senderDiv.textContent = data.sender;
 
-    const messageContent = document.createElement('div');
-    messageContent.textContent = data.message;
+//     const messageContent = document.createElement('div');
+//     messageContent.textContent = data.message;
 
-    messageDiv.appendChild(senderDiv);
-    messageDiv.appendChild(messageContent);
-    chatMessages.appendChild(messageDiv);
+//     messageDiv.appendChild(senderDiv);
+//     messageDiv.appendChild(messageContent);
+//     chatMessages.appendChild(messageDiv);
 
-    // Auto-scroll to bottom
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-});
-function sendChatMessage() {
-    const message = chatInput.value.trim();
-    if (message) {
-        // Emit message to server
-        socket.emit('chat_message', {
-            message: message,
-            sender: playerName,
-            room: currentRoom
-        });
-        chatInput.value = '';
-    }
-}
+//     // Auto-scroll to bottom
+//     chatMessages.scrollTop = chatMessages.scrollHeight;
+// });
+// function sendChatMessage() {
+//     const message = chatInput.value.trim();
+//     if (message) {
+//         // Emit message to server
+//         socket.emit('chat_message', {
+//             message: message,
+//             sender: playerName,
+//             room: currentRoom
+//         });
+//         chatInput.value = '';
+//     }
+// }
 
 // Generate BINGO card
 function generateBingoCard() {
@@ -209,14 +208,14 @@ socket.on('roomCreated', (roomCode) => {
     currentRoom = roomCode;
     showMessage(`Room created! Room code: ${roomCode}`, 'green');
     welcomeScreen.style.display = 'none';
-    //chatToggle.style.display = 'block';
+    // chatToggle.style.display = 'block';
 });
 
 socket.on('roomJoined', (roomCode) => {
     currentRoom = roomCode;
     showMessage(`Joined room: ${roomCode}`, 'green');
     welcomeScreen.style.display = 'none';
-    //chatToggle.style.display = 'block';
+    // chatToggle.style.display = 'block';
 });
 
 socket.on('roomError', (message) => {
@@ -230,7 +229,7 @@ socket.on('hostAssigned', () => {
     hostControls.style.display = 'block';
     playerView.style.display = 'none';
     showMessage('You are the host!', 'green');
-    showChat();
+    // showChat();
 
 });
 socket.on('playerAssigned', (card) => {
@@ -239,7 +238,7 @@ socket.on('playerAssigned', (card) => {
     playerView.style.display = 'block';
     myBingoCard = card;
     renderBingoCard(card);
-    showChat();
+    // showChat();
     showMessage('Welcome to the game! You can shuffle your card before the game starts.', 'green');
 
 });
@@ -457,7 +456,7 @@ function showMessage(message, color) {
         <span class="message-text">${message}</span>
     `;
 
-    //gameMessages.appendChild(messageDiv);
+    gameMessages.appendChild(messageDiv);
 
     // Remove the message after animation completes
     setTimeout(() => {
