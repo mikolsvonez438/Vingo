@@ -47,7 +47,7 @@ chatToggle.addEventListener('click', () => {
 });
 
 function showChat() {
-    chatSection.style.display = 'block';
+    //chatSection.style.display = 'block';
 }
 sendMessage.addEventListener('click', sendChatMessage);
 chatInput.addEventListener('keypress', (e) => {
