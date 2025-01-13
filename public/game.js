@@ -1,12 +1,11 @@
-// Connect to Socket.IO server
 const socket = io();
-// Game state variables
+
 let isHost = false;
 let playerName = '';
 let myBingoCard = [];
 let drawnNumbers = new Set();
 let gameActive = false;
-// DOM Elements
+
 const hostControls = document.getElementById('hostControls');
 const playerView = document.getElementById('playerView');
 const welcomeScreen = document.getElementById('welcomeScreen');
@@ -24,70 +23,76 @@ const lastDrawnDisplay = document.getElementById('lastDrawn');
 const callBingoBtn = document.getElementById('callBingo');
 const gameMessages = document.getElementById('gameMessages');
 
-// Add these variables at the top
+
 let currentRoom = '';
-const roomInput = document.getElementById('roomInput'); // Add this input to your HTML
-const createRoomBtn = document.getElementById('createRoom'); // Add this button to your HTML
-const joinRoomBtn = document.getElementById('joinRoom'); // Add this button to your HTML
+const roomInput = document.getElementById('roomInput');
+const createRoomBtn = document.getElementById('createRoom'); 
+const joinRoomBtn = document.getElementById('joinRoom');
 
 // SEND MESSAGE
 
-// const chatSection = document.getElementById('chatSection');
-// const chatMessages = document.getElementById('chatMessages');
-// const chatInput = document.getElementById('chatInput');
-// const sendMessage = document.getElementById('sendMessage');
+const chatSection = document.getElementById('chatSection');
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendMessage = document.getElementById('sendMessage');
 
-// const chatToggle = document.getElementById('chatToggle');
-// let isChatVisible = false;
+const chatToggle = document.getElementById('chatToggle');
+let isChatVisible = false;
 
-// chatToggle.addEventListener('click', () => {
-//     isChatVisible = !isChatVisible;
-//     chatSection.style.display = isChatVisible ? 'block' : 'none';
-// });
+chatToggle.addEventListener('click', () => {
+    isChatVisible = !isChatVisible;
+    chatSection.style.display = isChatVisible ? 'block' : 'none';
+});
 
-// function showChat() {
-//     chatSection.style.display = 'block';
-// }
-// sendMessage.addEventListener('click', sendChatMessage);
-// chatInput.addEventListener('keypress', (e) => {
-//     if (e.key === 'Enter') {
-//         console.log('zxc')
-//         sendChatMessage();
-//     }
-// });
-// socket.on('chat_message', (data) => {
-//     console.log('zxc', data)
-//     const messageDiv = document.createElement('div');
-//     messageDiv.className = `chat-message ${data.sender === playerName ? 'own' : 'other'}`;
+function showChat() {
+    chatSection.style.display = 'block';
+}
+sendMessage.addEventListener('click', sendChatMessage);
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        console.log('zxc')
+        sendChatMessage();
+    }
+});
+socket.on('chat_message', (data) => {
+    console.log('zxc', data)
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${data.sender === playerName ? 'own' : 'other'}`;
 
-//     const senderDiv = document.createElement('div');
-//     senderDiv.className = 'message-sender';
-//     senderDiv.textContent = data.sender;
+    const senderDiv = document.createElement('div');
+    senderDiv.className = 'message-sender';
+    senderDiv.textContent = data.sender;
 
-//     const messageContent = document.createElement('div');
-//     messageContent.textContent = data.message;
+    const messageContent = document.createElement('div');
+    messageContent.textContent = data.message;
 
-//     messageDiv.appendChild(senderDiv);
-//     messageDiv.appendChild(messageContent);
-//     chatMessages.appendChild(messageDiv);
+    messageDiv.appendChild(senderDiv);
+    messageDiv.appendChild(messageContent);
+    chatMessages.appendChild(messageDiv);
 
-//     // Auto-scroll to bottom
-//     chatMessages.scrollTop = chatMessages.scrollHeight;
-// });
-// function sendChatMessage() {
-//     const message = chatInput.value.trim();
-//     if (message) {
-//         // Emit message to server
-//         socket.emit('chat_message', {
-//             message: message,
-//             sender: playerName,
-//             room: currentRoom
-//         });
-//         chatInput.value = '';
-//     }
-// }
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+});
+function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (message) {
+        socket.emit('chat_message', {
+            message: message,
+            sender: playerName,
+            room: currentRoom
+        });
+        chatInput.value = '';
+    }
+}
 
-// Generate BINGO card
+function generateThreeBingoCards() {
+    const cards = [];
+    for (let i = 0; i < 3; i++) {
+        cards.push(generateBingoCard());
+    }
+    return cards;
+}
+
+
 function generateBingoCard() {
     const card = [];
     // B (1-15)
@@ -129,29 +134,15 @@ function generateRandomNumbers(min, max, count) {
 // Shuffle card handler
 shuffleCardBtn.addEventListener('click', () => {
     if (!gameActive) {
-        myBingoCard = generateBingoCard();
+        myBingoCard = generateThreeBingoCards();
         renderBingoCard(myBingoCard);
-        showMessage('Card shuffled!', "default");
-
+        showMessage('Cards shuffled!', "default");
     } else {
-        showMessage('Cannot shuffle card after game has started!', 'red');
-
+        showMessage('Cannot shuffle cards after game has started!', 'red');
     }
 });
-// Join game handler
-// joinGameBtn.addEventListener('click', () => {
-//     playerName = playerNameInput.value.trim();
-//     currentRoom = roomInput.value.trim();
 
-//     if (playerName && currentRoom) {
-//         socket.emit('joinGame', { playerName, room: currentRoom });
-//         welcomeScreen.style.display = 'none';
-//     } else {
-//         showMessage('Please enter your name and room code!', 'red');
-//     }
-// });
 
-// Add these new event listeners
 createRoomBtn.addEventListener('click', () => {
     playerName = playerNameInput.value.trim();
     if (playerName) {
@@ -203,7 +194,6 @@ callBingoBtn.addEventListener('click', () => {
     }
 });
 
-// Add these new socket event listeners
 socket.on('roomCreated', (roomCode) => {
     currentRoom = roomCode;
     showMessage(`Room created! Room code: ${roomCode}`, 'green');
@@ -232,12 +222,12 @@ socket.on('hostAssigned', () => {
     // showChat();
 
 });
-socket.on('playerAssigned', (card) => {
+socket.on('playerAssigned', () => {
     isHost = false;
     hostControls.style.display = 'none';
     playerView.style.display = 'block';
-    myBingoCard = card;
-    renderBingoCard(card);
+    myBingoCard = generateThreeBingoCards();
+    renderBingoCard(myBingoCard);
     // showChat();
     showMessage('Welcome to the game! You can shuffle your card before the game starts.', 'green');
 
@@ -298,48 +288,71 @@ socket.on('updatePlayers', (players) => {
 
     });
 });
-socket.on('bingoWinner', (winner) => {
+socket.on('gameComplete', (winners) => {
     gameActive = false;
+    showMessage(`Game Complete! Winners: ${winners.join(', ')}`, 'winner');
+    shuffleCardBtn.disabled = false;
+});
+
+socket.on('bingoWinner', (data) => {
+    const { newWinner, allWinners } = data;
+
     const winnerOverlay = document.createElement('div');
     winnerOverlay.className = 'winner-overlay';
+
+    const winnersHTML = allWinners.map(winner => `<h2>🎉 ${winner} has BINGO! 🎉</h2>`).join('');
+
     winnerOverlay.innerHTML = `
         <div class="winner-content">
-            <h1>🎉 BINGO! 🎉</h1>
-            <h2>${winner} has won the game!</h2>
+            <h1>BINGO Winners!</h1>
+            ${winnersHTML}
             <button class="close-overlay-btn">Close</button>
         </div>
     `;
+
     document.body.appendChild(winnerOverlay);
 
-    // Add event listener to close button
     const closeBtn = winnerOverlay.querySelector('.close-overlay-btn');
     closeBtn.addEventListener('click', () => {
         winnerOverlay.remove();
     });
 
+    // Show message for new winner
+    showMessage(`${newWinner} has BINGO!`, 'winner');
 
-    showMessage(`${winner} has won the game!`, 'winner');
-    callBingoBtn.disabled = true;
-    shuffleCardBtn.disabled = false;
+    // Keep the game active for other potential winners
+    // Only disable shuffle button
+    shuffleCardBtn.disabled = true;
 });
 // Render BINGO card
-function renderBingoCard(card) {
-    bingoGrid.innerHTML = '';
-    card.forEach((row, rowIndex) => {
-        row.forEach((num, colIndex) => {
-            const cell = document.createElement('div');
-            cell.className = 'bingo-cell';
-            cell.textContent = num;
-            cell.dataset.row = rowIndex;
-            cell.dataset.col = colIndex;
-            cell.addEventListener('click', () => toggleCell(cell));
-            bingoGrid.appendChild(cell);
+function renderBingoCard(cards) {
+    cards.forEach((card, index) => {
+        const gridId = `bingoGrid${index + 1}`;
+        const gridElement = document.getElementById(gridId);
 
+        // Clear existing content
+        gridElement.innerHTML = '';
+
+        // Create and append cells for this card
+        card.forEach((row, rowIndex) => {
+            row.forEach((number, colIndex) => {
+                const cell = document.createElement('div');
+                cell.className = 'bingo-cell';
+                cell.textContent = number;
+                cell.dataset.number = number;
+                cell.dataset.row = rowIndex;
+                cell.dataset.col = colIndex;
+
+                cell.addEventListener('click', () => toggleCell(cell));
+
+                gridElement.appendChild(cell);
+            });
         });
     });
 }
 // Toggle cell marked state
 function toggleCell(cell) {
+    console.log('cell', cell)
     const number = parseInt(cell.textContent);
     if (drawnNumbers.has(number)) {
         cell.classList.toggle('marked');
@@ -355,85 +368,112 @@ function toggleCell(cell) {
 }
 // Check for win conditions
 function checkForWin() {
-    const markedCells = document.querySelectorAll('.bingo-cell.marked');
-    const positions = Array.from(markedCells).map(cell => ({
-        row: parseInt(cell.dataset.row),
-        col: parseInt(cell.dataset.col)
-    }));
+    for (let cardIndex = 1; cardIndex <= 3; cardIndex++) {
+        const gridId = `bingoGrid${cardIndex}`;
+        const gridElement = document.getElementById(gridId);
 
-    // Helper function to check if a pattern matches
-    const checkPattern = (coordinates) => {
-        return coordinates.every(([row, col]) =>
-            positions.some(pos => pos.row === row && pos.col === col)
+        const allCells = Array.from(gridElement.querySelectorAll('.bingo-cell')).filter(cell =>
+            cell.textContent !== "FREE"
         );
-    };
 
-    // Check rows
-    for (let row = 0; row < 5; row++) {
-        if (positions.filter(pos => pos.row === row).length === 5) return true;
+        const markedCells = Array.from(gridElement.querySelectorAll('.bingo-cell.marked')).filter(cell =>
+            cell.textContent !== "FREE"
+        );
+
+        // Check if all numbers are marked (blackout)
+        // For blackout, the number of marked cells should equal the total number of cells (excluding FREE)
+        if (markedCells.length === allCells.length) {
+            return true;
+        }
     }
-
-    // Check columns
-    for (let col = 0; col < 5; col++) {
-        if (positions.filter(pos => pos.col === col).length === 5) return true;
-    }
-
-    // Diagonal patterns
-    const diagonalPatterns = [
-        [[0, 4], [1, 3], [3, 1], [4, 0]], // Top-right to bottom-left
-        [[0, 0], [1, 1], [3, 3], [4, 4]], // Top-left to bottom-right
-        [[0, 3], [1, 2], [2, 1], [3, 0]], // Partial diagonal
-        [[1, 4], [2, 3], [3, 2], [4, 1]], // Partial diagonal
-        [[0, 1], [1, 2], [2, 3], [3, 4]], // Partial diagonal
-        [[0, 0], [1, 1], [2, 2], [3, 3]]  // Partial diagonal
-    ];
-
-    // Box patterns (2x2)
-    const boxPatterns = [
-        [[0, 0], [0, 1], [1, 0], [1, 1]], // Top-left
-        [[0, 1], [0, 2], [1, 1], [1, 2]], // Top-middle
-        [[0, 2], [0, 3], [1, 2], [1, 3]], // Top-middle-right
-        [[0, 3], [0, 4], [1, 3], [1, 4]], // Top-right
-        [[1, 0], [1, 1], [2, 0], [2, 1]], // Middle-left
-        [[1, 3], [1, 4], [2, 3], [2, 4]], // Middle-right
-        [[2, 3], [2, 4], [3, 3], [3, 4]], // Bottom-middle-right
-        [[2, 0], [2, 1], [3, 0], [3, 1]], // Bottom-middle-left
-        [[3, 0], [3, 1], [4, 0], [4, 1]], // Bottom-left
-        [[3, 1], [3, 2], [4, 1], [4, 2]], // Bottom-middle
-        [[3, 2], [3, 3], [4, 2], [4, 3]], // Bottom-middle-right
-        [[3, 3], [3, 4], [4, 3], [4, 4]]  // Bottom-right
-    ];
-
-    // Corner pattern
-    const cornerPattern = [[0, 0], [0, 4], [4, 0], [4, 4]];
-
-    // Flower patterns
-    const flowerPatterns = [
-        [[0, 2], [2, 0], [2, 4], [4, 2]], // Cross pattern
-        [[1, 2], [2, 1], [2, 3], [3, 2]], // Center flower
-        [[0, 1], [1, 0], [1, 2], [2, 1]], // Top flower
-        [[0, 3], [1, 2], [1, 4], [2, 3]], // Top-right flower
-        [[2, 1], [3, 0], [3, 2], [4, 1]], // Bottom-left flower
-        [[2, 3], [3, 2], [3, 4], [4, 3]]  // Bottom-right flower
-    ];
-
-    // Check all patterns
-    for (let pattern of diagonalPatterns) {
-        if (checkPattern(pattern)) return true;
-    }
-
-    for (let pattern of boxPatterns) {
-        if (checkPattern(pattern)) return true;
-    }
-
-    if (checkPattern(cornerPattern)) return true;
-
-    for (let pattern of flowerPatterns) {
-        if (checkPattern(pattern)) return true;
-    }
-
     return false;
 }
+// function checkForWin() {
+//     for (let cardIndex = 1; cardIndex <= 3; cardIndex++) {
+
+//         const gridId = `bingoGrid${cardIndex}`;
+//         const gridElement = document.getElementById(gridId)
+//         const markedCells = gridElement.querySelectorAll('.bingo-cell.marked');
+
+//         // const markedCells = document.querySelectorAll('.bingo-cell.marked');
+//         const positions = Array.from(markedCells).map(cell => ({
+//             row: parseInt(cell.dataset.row),
+//             col: parseInt(cell.dataset.col)
+//         }));
+
+//         // Helper function to check if a pattern matches
+//         const checkPattern = (coordinates) => {
+//             return coordinates.every(([row, col]) =>
+//                 positions.some(pos => pos.row === row && pos.col === col)
+//             );
+//         };
+
+//         // Check rows
+//         for (let row = 0; row < 5; row++) {
+//             if (positions.filter(pos => pos.row === row).length === 5) return true;
+//         }
+
+//         // Check columns
+//         for (let col = 0; col < 5; col++) {
+//             if (positions.filter(pos => pos.col === col).length === 5) return true;
+//         }
+
+//         // Diagonal patterns
+//         const diagonalPatterns = [
+//             [[0, 4], [1, 3], [3, 1], [4, 0]], // Top-right to bottom-left
+//             [[0, 0], [1, 1], [3, 3], [4, 4]], // Top-left to bottom-right
+//             [[0, 3], [1, 2], [2, 1], [3, 0]], // Partial diagonal
+//             [[1, 4], [2, 3], [3, 2], [4, 1]], // Partial diagonal
+//             [[0, 1], [1, 2], [2, 3], [3, 4]], // Partial diagonal
+//             [[0, 0], [1, 1], [2, 2], [3, 3]]  // Partial diagonal
+//         ];
+
+//         // Box patterns (2x2)
+//         const boxPatterns = [
+//             [[0, 0], [0, 1], [1, 0], [1, 1]], // Top-left
+//             [[0, 1], [0, 2], [1, 1], [1, 2]], // Top-middle
+//             [[0, 2], [0, 3], [1, 2], [1, 3]], // Top-middle-right
+//             [[0, 3], [0, 4], [1, 3], [1, 4]], // Top-right
+//             [[1, 0], [1, 1], [2, 0], [2, 1]], // Middle-left
+//             [[1, 3], [1, 4], [2, 3], [2, 4]], // Middle-right
+//             [[2, 3], [2, 4], [3, 3], [3, 4]], // Bottom-middle-right
+//             [[2, 0], [2, 1], [3, 0], [3, 1]], // Bottom-middle-left
+//             [[3, 0], [3, 1], [4, 0], [4, 1]], // Bottom-left
+//             [[3, 1], [3, 2], [4, 1], [4, 2]], // Bottom-middle
+//             [[3, 2], [3, 3], [4, 2], [4, 3]], // Bottom-middle-right
+//             [[3, 3], [3, 4], [4, 3], [4, 4]]  // Bottom-right
+//         ];
+
+//         // Corner pattern
+//         const cornerPattern = [[0, 0], [0, 4], [4, 0], [4, 4]];
+
+//         // Flower patterns
+//         const flowerPatterns = [
+//             [[0, 2], [2, 0], [2, 4], [4, 2]], // Cross pattern
+//             [[1, 2], [2, 1], [2, 3], [3, 2]], // Center flower
+//             [[0, 1], [1, 0], [1, 2], [2, 1]], // Top flower
+//             [[0, 3], [1, 2], [1, 4], [2, 3]], // Top-right flower
+//             [[2, 1], [3, 0], [3, 2], [4, 1]], // Bottom-left flower
+//             [[2, 3], [3, 2], [3, 4], [4, 3]]  // Bottom-right flower
+//         ];
+
+//         // Check all patterns
+//         for (let pattern of diagonalPatterns) {
+//             if (checkPattern(pattern)) return true;
+//         }
+
+//         for (let pattern of boxPatterns) {
+//             if (checkPattern(pattern)) return true;
+//         }
+
+//         if (checkPattern(cornerPattern)) return true;
+
+//         for (let pattern of flowerPatterns) {
+//             if (checkPattern(pattern)) return true;
+//         }
+//     }
+//     return false;
+// }
 // Update drawn numbers list
 function updateDrawnNumbersList() {
     drawnNumbersList.innerHTML = '';
@@ -449,7 +489,7 @@ function showMessage(message, color) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message color-${color}`;
 
-    // Create inner content with icon (optional)
+    // Create inner content with icon 
     const icon = getIconForMessage(color);
     messageDiv.innerHTML = `
         ${icon ? `<span class="message-icon">${icon}</span>` : ''}
@@ -464,7 +504,7 @@ function showMessage(message, color) {
     }, 5000);
 }
 
-// Helper function to get icons based on message type
+// icons based on message type
 function getIconForMessage(color) {
     switch (color) {
         case 'green':
@@ -478,8 +518,6 @@ function getIconForMessage(color) {
     }
 }
 
-
-// Add this to your existing JavaScript
 const patterns = [
     // Row patterns
     "11111|00000|00000|00000|00000",
@@ -569,3 +607,34 @@ window.onclick = function (event) {
         modal.style.display = "none";
     }
 }
+
+//NOTE -  dark mode
+// Theme switcher functionality
+function setTheme(themeName) {
+    localStorage.setItem('theme', themeName);
+    document.documentElement.setAttribute('data-theme', themeName);
+}
+
+// Toggle between dark and light themes
+function toggleTheme() {
+    if (localStorage.getItem('theme') === 'dark') {
+        setTheme('light');
+    } else {
+        setTheme('dark');
+    }
+}
+
+// Initialize theme on load
+(function () {
+    if (localStorage.getItem('theme') === 'dark') {
+        setTheme('dark');
+        document.getElementById('checkbox').checked = true;
+    } else {
+        setTheme('light');
+        document.getElementById('checkbox').checked = false;
+    }
+})();
+
+document.getElementById('checkbox').addEventListener('change', function () {
+    toggleTheme();
+});
