@@ -11,6 +11,15 @@
 
 <body>
     <div class="container">
+        <div class="theme-switch-wrapper">
+            <label class="theme-switch" for="checkbox">
+                <input type="checkbox" id="checkbox" />
+                <div class="slider round">
+                    <span class="moon">🌙</span>
+                    <span class="sun">☀️</span>
+                </div>
+            </label>
+        </div>
         <!-- Host Controls (initially hidden) -->
         <div id="hostControls" class="host-section" style="display: none;">
             <h2>BINGO Host Controls</h2>
@@ -45,16 +54,44 @@
             <div class="card-controls">
                 <button id="shuffleCard" class="btn-secondary">Shuffle Card</button>
             </div>
-            <div class="bingo-card">
-                <div class="bingo-header">
-                    <span>B</span>
-                    <span>I</span>
-                    <span>N</span>
-                    <span>G</span>
-                    <span>O</span>
+            <div class="bingo-cards-container">
+                <div class="bingo-card">
+                    <div class="bingo-header">
+                        <span>B</span>
+                        <span>I</span>
+                        <span>N</span>
+                        <span>G</span>
+                        <span>O</span>
+                    </div>
+                    <div id="bingoGrid1" class="bingo-grid">
+                        <!-- First Bingo grid -->
+                    </div>
                 </div>
-                <div id="bingoGrid" class="bingo-grid">
-                    <!-- Bingo grid will be generated here -->
+
+                <div class="bingo-card">
+                    <div class="bingo-header">
+                        <span>B</span>
+                        <span>I</span>
+                        <span>N</span>
+                        <span>G</span>
+                        <span>O</span>
+                    </div>
+                    <div id="bingoGrid2" class="bingo-grid">
+                        <!-- Second Bingo grid -->
+                    </div>
+                </div>
+
+                <div class="bingo-card">
+                    <div class="bingo-header">
+                        <span>B</span>
+                        <span>I</span>
+                        <span>N</span>
+                        <span>G</span>
+                        <span>O</span>
+                    </div>
+                    <div id="bingoGrid3" class="bingo-grid">
+                        <!-- Third Bingo grid -->
+                    </div>
                 </div>
             </div>
             <div class="game-status">
@@ -77,8 +114,14 @@
         </div>
         <!-- Game Messages -->
         <div id="gameMessages" class="game-messages"></div>
+        <div id="errorMessages"
+            style="display: none; color: red; background-color: #ffe6e6; padding: 10px; margin: 10px 0; border-radius: 5px;">
+        </div>
         <!-- Chat Section -->
-        <!-- <button id="chatToggle" class="chat-toggle-btn" style="display: none;">
+
+
+        <!-- chat -->
+        <button id="chatToggle" class="chat-toggle-btn">
             Toggle Chat
         </button>
         <div id="chatSection" class="chat-section" style="display: none;">
@@ -89,7 +132,8 @@
                     <button id="sendMessage" class="btn-primary">Send</button>
                 </div>
             </div>
-        </div> -->
+        </div>
+        <!-- /chat -->
     </div>
     <script src="game.js"></script>
 </body>
